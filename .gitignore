@@ -1,0 +1,13 @@
+# Directories
+node_modules/
+dish-images/
+
+# Databases
+databases/dishes.json
+
+# JS output
+*.js
+
+# Private files
+.env
+.jwtsecret

@@ -1,0 +1,16 @@
+{
+  "name": "what-the-food-api",
+  "version": "0.0.1",
+  "description": "WhatTheFood API",
+  "author": "iannisdezwart",
+  "scripts": {
+    "start": "node index"
+  },
+  "dependencies": {
+    "@iannisz/node-api-kit": "^0.0.5",
+    "dotenv": "^16.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.45"
+  }
+}
