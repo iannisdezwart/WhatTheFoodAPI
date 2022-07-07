@@ -1,5 +1,2 @@
-import * as dotenv from 'dotenv'
-dotenv.config()
-
-import './api'
-import './routes'
+import './api.js'
+import './routes.js'

@@ -8,9 +8,13 @@
   },
   "dependencies": {
     "@iannisz/node-api-kit": "^0.0.5",
-    "dotenv": "^16.0.1"
+    "@types/gm": "^1.18.12",
+    "dotenv": "^16.0.1",
+    "file-type": "^17.1.2",
+    "gm": "^1.23.1"
   },
   "devDependencies": {
     "@types/node": "^17.0.45"
-  }
+  },
+  "type": "module"
 }

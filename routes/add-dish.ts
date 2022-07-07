@@ -1,18 +1,20 @@
 import { readJSONBody } from '@iannisz/node-api-kit'
-import { api } from '../api'
-import { addDish, IncomingDish, validateIncomingDish } from '../repositories/dishes'
+import { api } from '../api.js'
+import { addDish, IncomingDish, validateIncomingDish } from '../repositories/dishes.js'
 
 /**
  * Adds the dish received by the client to the database.
  */
 api.post('/add-dish', async (req, res) =>
 {
-	const dish = await readJSONBody(req) as IncomingDish
+	console.log('[`/add-dish` Endpoint]')
 
 	try
 	{
+		const dish = await readJSONBody(req) as IncomingDish
+
 		validateIncomingDish(dish)
-		addDish(dish)
+		await addDish(dish)
 		res.end()
 	}
 	catch (err)
