@@ -36,6 +36,11 @@ export interface DishEntity
 	imageFilePath: string
 
 	/**
+	 * Description of the dish.
+	 */
+	description: any[]
+
+	/**
 	 * List of all user ratings for this dish.
 	 */
 	ratings: DishRating[]
@@ -55,6 +60,11 @@ export interface DishTransport
 	 * File path of the image.
 	 */
 	imageFilePath: string
+
+	/**
+	 * Description of the dish.
+	 */
+	description: any[]
 
 	/**
 	 * Average rating for the dish.
@@ -81,6 +91,11 @@ export interface IncomingDish
 	 * Base-64 data URL encoded image of the dish.
 	 */
 	image: string
+
+	/**
+	 * Description of the dish.
+	 */
+	description?: any[]
 }
 
 /**
@@ -171,6 +186,7 @@ export const getAllDishes = (userId: string): DishTransport[] =>
 	return read().map(dish => ({
 		name: dish.name,
 		imageFilePath: dish.imageFilePath,
+		description: dish.description,
 		rating: avg(dish.ratings.map(rating => rating.rating)),
 		yourRating: dish.ratings.find(rating => rating.userId == userId)?.rating
 	}))
@@ -188,6 +204,7 @@ export const getDishOfTheDay = (userId: string): DishTransport =>
 		return {
 			name: '<empty>',
 			imageFilePath: 'placeholder.jpg',
+			description: [],
 			rating: 0
 		}
 	}
@@ -206,6 +223,7 @@ export const getDishOfTheDay = (userId: string): DishTransport =>
 	return {
 		name: dishOfTheDay.name,
 		imageFilePath: dishOfTheDay.imageFilePath,
+		description: dishOfTheDay.description,
 		rating: avg(dishOfTheDay.ratings.map(rating => rating.rating)),
 		yourRating: dishOfTheDay.ratings.find(rating => rating.userId == userId)?.rating
 	}
@@ -255,6 +273,7 @@ export const addDish = (dish: IncomingDish) => new Promise<void>(async (resolve,
 			dishes.push({
 				name: dish.name.trim(),
 				imageFilePath: imageFilePath,
+				description: dish.description || [],
 				ratings: []
 			})
 
@@ -317,6 +336,7 @@ export const editDish = async (request: DishEditRequest) =>
 	}
 
 	dish.name = request.updatedDish.name.trim()
+	dish.description = request.updatedDish.description || []
 
 	write(dishes)
 }
@@ -356,4 +376,10 @@ export const rateDish = (request: DishRatingRequest) =>
 	}
 
 	write(dishes)
+
+	// Return the new dish rating.
+
+	return {
+		newRating: avg(dish.ratings.map(rating => rating.rating))
+	}
 }

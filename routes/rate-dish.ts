@@ -12,9 +12,7 @@ api.post('/rate-dish', async (req, res) =>
 	try
 	{
 		const dishRatingRequest = await readJSONBody(req) as DishRatingRequest
-
-		rateDish(dishRatingRequest)
-		res.end()
+		res.end(JSON.stringify(rateDish(dishRatingRequest)))
 	}
 	catch (err)
 	{
