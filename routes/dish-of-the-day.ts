@@ -8,9 +8,9 @@ api.get('/dish-of-the-day', (req, res) =>
 {
 	const url = new URL(req.url, 'http://localhost')
 	const userId = url.searchParams.get('userId')
-	const dishes = getDishOfTheDay(userId)
+	const dish = getDishOfTheDay(userId)
 
-	console.log('[`/get-dish-of-the-day` Endpoint]', { userId }, dishes)
+	console.log('[`/get-dish-of-the-day` Endpoint]', { userId }, dish)
 
-	res.end(JSON.stringify(dishes))
+	res.end(JSON.stringify(dish))
 })

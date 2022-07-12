@@ -193,25 +193,61 @@ export const getAllDishes = (userId: string): DishTransport[] =>
 }
 
 /**
- * Selects a dish of the day from the database.
+ * Holds a yyyy-mm-dd formatted date string.
+ * Used for determining whether the current dish of the day is still valid.
  */
-export const getDishOfTheDay = (userId: string): DishTransport =>
+let currentDay: string
+
+/**
+ * Returns a yyyy-mm-dd formatted date string of today.
+ */
+export const getCurrentDay = () =>
 {
+	const date = new Date()
+	return date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate()
+}
+
+/**
+ * The dish of the day. Updated whenever it is null or `currentDay` is
+ * out of date.
+ */
+let dishOfTheDay: DishEntity
+
+/**
+ * The nonce for the dish of the day picking algorithm.
+ * Changing this nonce will result in a new dish of the day.
+ * Useful when skipping the dish of the day.
+ */
+let nonce = 0
+
+export const skipDishOfTheDay = () =>
+{
+	nonce++
+	selectDishOfTheDay()
+}
+
+/**
+ * Selects a random dish to be chosen to be the dish of the day.
+ */
+export const selectDishOfTheDay = () =>
+{
+	currentDay = getCurrentDay()
+
 	const dishes = read()
 
 	if (dishes.length == 0)
 	{
-		return {
+		dishOfTheDay = {
 			name: '<empty>',
 			imageFilePath: 'placeholder.jpg',
 			description: [],
-			rating: 0
+			ratings: []
 		}
+
+		return
 	}
 
-	const date = new Date()
-	const yyyymmdd = date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate()
-	const hash = createHash('sha256').update(yyyymmdd).digest('hex')
+	const hash = createHash('sha256').update(currentDay + nonce).digest('hex')
 	let numericHash = 0
 
 	for (let i = 0; i < 8; i++)
@@ -219,7 +255,19 @@ export const getDishOfTheDay = (userId: string): DishTransport =>
 		numericHash ^= parseInt(hash.substring(i * 8, i * 8 + 8), 16)
 	}
 
-	const dishOfTheDay = dishes[Math.abs(numericHash % dishes.length)]
+	dishOfTheDay = dishes[Math.abs(numericHash % dishes.length)]
+}
+
+/**
+ * Selects a dish of the day from the database.
+ */
+export const getDishOfTheDay = (userId: string): DishTransport =>
+{
+	if (currentDay == null || dishOfTheDay == null || currentDay != getCurrentDay())
+	{
+		selectDishOfTheDay()
+	}
+
 	return {
 		name: dishOfTheDay.name,
 		imageFilePath: dishOfTheDay.imageFilePath,
@@ -230,27 +278,10 @@ export const getDishOfTheDay = (userId: string): DishTransport =>
 }
 
 /**
- * Adds a dish to the database.
+ * Processes the image of a new dish.
  */
-export const addDish = (dish: IncomingDish) => new Promise<void>(async (resolve, reject) =>
+const processDishImage = (dish: IncomingDish) => new Promise<string>(async resolve =>
 {
-	console.log('[Dish repository] Adding dish', dish.name)
-
-	const dishes = read()
-
-	if (!existsSync('dish-images'))
-	{
-		mkdirSync('dish-images')
-	}
-
-	// If a dish with this name already exists, throw an error.
-
-	if (dishes.find(d => d.name == dish.name))
-	{
-		reject(Error('Dish already exists'))
-		return
-	}
-
 	// Save the image to the disk.
 
 	const fileBuffer = Buffer.from(dish.image, 'base64')
@@ -267,20 +298,53 @@ export const addDish = (dish: IncomingDish) => new Promise<void>(async (resolve,
 		.write('dish-images/' + imageFilePath, () =>
 		{
 			console.log(`Saved compressed image to dish-images/${ imageFilePath }`)
-
-			// Add the dish to the database.
-
-			dishes.push({
-				name: dish.name.trim(),
-				imageFilePath: imageFilePath,
-				description: dish.description || [],
-				ratings: []
-			})
-
-			write(dishes)
-			resolve()
+			resolve(imageFilePath)
 		})
 })
+
+/**
+ * Adds a dish to the database.
+ */
+export const addDish = async (dish: IncomingDish) =>
+{
+	console.log('[Dish repository] Adding dish', dish.name)
+
+	const dishes = read()
+
+	if (!existsSync('dish-images'))
+	{
+		mkdirSync('dish-images')
+	}
+
+	// If a dish with this name already exists, throw an error.
+
+	if (dishes.find(d => d.name == dish.name))
+	{
+		throw new Error('Dish already exists')
+	}
+
+	// Add the dish to the database.
+
+	dishes.push({
+		name: dish.name.trim(),
+		imageFilePath: await processDishImage(dish),
+		description: dish.description || [],
+		ratings: []
+	})
+
+	write(dishes)
+}
+
+/**
+ * Deletes the image of an old dish.
+ */
+const deleteDishImage = (dish: DishEntity) =>
+{
+	if (existsSync('dish-images/' + dish.imageFilePath))
+	{
+		unlinkSync('dish-images/' + dish.imageFilePath)
+	}
+}
 
 /**
  * Deletes a dish from the database.
@@ -299,10 +363,7 @@ export const deleteDish = (request: DishDeleteRequest) =>
 
 	// Delete the dish image from the disk.
 
-	if (existsSync('dish-images/' + dish.imageFilePath))
-	{
-		unlinkSync('dish-images/' + dish.imageFilePath)
-	}
+	deleteDishImage(dish)
 
 	// Delete the dish from the database.
 
@@ -316,17 +377,6 @@ export const deleteDish = (request: DishDeleteRequest) =>
  */
 export const editDish = async (request: DishEditRequest) =>
 {
-	// When the image is new, simply delete the old dish and add a new one.
-
-	if (request.updatedDish.image != '')
-	{
-		deleteDish({ dishName: request.dishName })
-		await addDish(request.updatedDish)
-		return
-	}
-
-	// When the image was not changed, simply update the dish in the database.
-
 	const dishes = read()
 	const dish = dishes.find(d => d.name == request.dishName)
 
@@ -335,8 +385,18 @@ export const editDish = async (request: DishEditRequest) =>
 		throw new Error('Dish does not exist')
 	}
 
+	// Update fields.
+
 	dish.name = request.updatedDish.name.trim()
 	dish.description = request.updatedDish.description || []
+
+	// Update image if needed.
+
+	if (request.updatedDish.image != '')
+	{
+		deleteDishImage(dish)
+		dish.imageFilePath = await processDishImage(request.updatedDish)
+	}
 
 	write(dishes)
 }
